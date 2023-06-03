@@ -6,9 +6,6 @@ use Kadence_Blocks_Frontend;
 
 class Controller {
 
-	public const SLUG = 'ae_element';
-
-
 	/**
 	 * @var string[]
 	 */
@@ -19,409 +16,35 @@ class Controller {
 	 */
 	public static ?array $current_user = null;
 
-	public static string $fields = '_ae_elements_fields';
+	protected static string $slug;
+
+	protected Main $main;
 
 
-	/**
-	 * Throw error on object clone.
-	 *
-	 * The whole idea of the singleton design pattern is that there is a single
-	 * object therefore, we don't want the object to be cloned.
-	 *
-	 * @return void
-	 */
-	public function __clone() {
+	public function __construct( Main $main ) {
 
-		// Cloning instances of the class is forbidden.
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning instances of the class is Forbidden', 'kadence-pro' ), '1.0' );
-	}
+		$this->main = $main;
 
-
-	/**
-	 * Disable un-serializing of the class.
-	 *
-	 * @return void
-	 */
-	public function __wakeup() {
-
-		// Unserializing instances of the class is forbidden.
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing instances of the class is forbidden', 'kadence-pro' ), '1.0' );
+		self::$slug = $this->main->get_slug();
 	}
 
 
 	public function setup_hook(): void {
 
-		add_action( 'init', [ $this, 'register_post_type' ], 1 );
-		add_action( 'init', [ $this, 'register_meta' ], 20 );
 		add_action( 'wp', [ $this, 'init_frontend_hooks' ], 99 );
-		add_action( 'init', array( $this, 'setup_content_filter' ), 9 );
-
-		add_action( 'add_meta_boxes', [ $this, 'add_meta_box_review' ] );
-		add_action( 'save_post_' . self::SLUG, [ $this, 'save_metabox' ], 10, 2 );
-	}
-
-
-	public function add_meta_box_review(): void {
-
-		add_meta_box(
-			'ae_elements_metabox',
-			__( 'Hooks' ),
-			[ $this, 'render_meta_box_content' ],
-			self::SLUG,
-			'side',
-			'high',
-		);
-
-	}
-
-
-	public function save_metabox( int $post_id ): void {
-
-		/*if ( ! isset( $_POST['ainsys_template_inner_nonce'] ) ) {
-			return;
-		}*/
-
-		$nonce = $_POST['ainsys_template_inner_nonce'];
-
-		if ( ! wp_verify_nonce( $nonce, 'ainsys_template_inner' ) ) {
-			return;
-		}
-
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-
-		if ( self::SLUG === $_POST['post_type'] ) {
-
-			if ( ! current_user_can( 'edit_page', $post_id ) ) {
-				return;
-			}
-
-		} elseif ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
-		}
-
-		$fields = $this->get_fields( $post_id );
-
-		$_fields = array_map( 'sanitize_text_field', $_POST );
-
-		foreach ( $fields as $key => $val ) {
-
-			$key_post = self::$fields . '_' . $key;
-
-			if ( isset( $_fields[ $key_post ] ) ) {
-				update_post_meta( $post_id, $key_post, $_fields[ $key_post ] );
-			} else {
-				delete_post_meta( $post_id, $key_post );
-			}
-		}
-	}
-
-
-	private function get_fields( $post_id ): array {
-
-		return [
-			'hook_custom'   => [
-				'label'             => __( 'Hook Name' ),
-				'required'          => true,
-				'type'              => 'text',
-				'class'             => [ 'template-input' ],
-				'value'             => get_post_meta( $post_id, self::$fields . '_hook_custom', true ) ? : '',
-				'custom_attributes' => [ 'style' => 'width:100%' ],
-			],
-			'hook_priority' => [
-				'label'             => __( 'Hook Priority' ),
-				'required'          => true,
-				'type'              => 'number',
-				'class'             => [ 'template-input' ],
-				'value'             => get_post_meta( $post_id, self::$fields . '_hook_priority', true ) ? : '',
-				'custom_attributes' => [ 'style' => 'width:100%' ],
-			],
-
-		];
-
-	}
-
-
-	public function metabox_field( $key, $args, $value = null ) {
-
-		$defaults = [
-			'type'              => 'text',
-			'label'             => '',
-			'description'       => '',
-			'placeholder'       => '',
-			'maxlength'         => false,
-			'required'          => false,
-			'autocomplete'      => false,
-			'id'                => $key,
-			'class'             => [],
-			'label_class'       => [],
-			'input_class'       => [],
-			'return'            => false,
-			'options'           => [],
-			'custom_attributes' => [],
-			'validate'          => [],
-			'default'           => '',
-			'autofocus'         => '',
-			'priority'          => '',
-		];
-
-		$args = wp_parse_args( $args, $defaults );
-		$args = apply_filters( 'ainsys_form_field_args', $args, $key, $value );
-
-		if ( is_string( $args['class'] ) ) {
-			$args['class'] = [ $args['class'] ];
-		}
-
-		$required = '';
-		if ( $args['required'] ) {
-			$args['class'][] = 'validate-required';
-			$required        = '&nbsp;*';
-		}
-
-		if ( is_string( $args['label_class'] ) ) {
-			$args['label_class'] = [ $args['label_class'] ];
-		}
-
-		if ( is_null( $value ) ) {
-			$value = $args['default'];
-		}
-
-		$custom_attributes         = [];
-		$args['custom_attributes'] = array_filter( (array) $args['custom_attributes'], 'strlen' );
-
-		if ( $args['maxlength'] ) {
-			$args['custom_attributes']['maxlength'] = absint( $args['maxlength'] );
-		}
-
-		if ( ! empty( $args['autocomplete'] ) ) {
-			$args['custom_attributes']['autocomplete'] = $args['autocomplete'];
-		}
-
-		if ( true === $args['autofocus'] ) {
-			$args['custom_attributes']['autofocus'] = 'autofocus';
-		}
-
-		if ( $args['description'] ) {
-			$args['custom_attributes']['aria-describedby'] = $args['id'] . '-description';
-		}
-
-		if ( ! empty( $args['custom_attributes'] ) && is_array( $args['custom_attributes'] ) ) {
-			foreach ( $args['custom_attributes'] as $attribute => $attribute_value ) {
-				$custom_attributes[] = esc_attr( $attribute ) . '="' . esc_attr( $attribute_value ) . '"';
-			}
-		}
-
-		if ( ! empty( $args['validate'] ) ) {
-			foreach ( $args['validate'] as $validate ) {
-				$args['class'][] = 'validate-' . $validate;
-			}
-		}
-
-		$field           = '';
-		$label_id        = $args['id'];
-		$sort            = $args['priority'] ? : '';
-		$field_container = '<p class="form-row %1$s" id="%2$s" data-priority="' . esc_attr( $sort ) . '">%3$s</p>';
-
-		switch ( $args['type'] ) {
-			case 'textarea':
-				$field .= sprintf(
-					'<textarea name="%s_%s" class="input-text %s" id="%s" placeholder="%s" %s%s%s>%s</textarea>',
-					self::$fields,
-					esc_attr( $key ),
-					esc_attr( implode( ' ', $args['input_class'] ) ),
-					esc_attr( $args['id'] ), esc_attr( $args['placeholder'] ),
-					empty( $args['custom_attributes']['rows'] ) ? ' rows="2"' : '',
-					empty( $args['custom_attributes']['cols'] ) ? ' cols="5"' : '',
-					implode( ' ', $custom_attributes ),
-					esc_textarea( $value )
-				);
-
-				break;
-			case 'checkbox':
-				$field = sprintf(
-					'<label class="checkbox %s" %s><input type="%s" class="input-checkbox %s" name="%s_%s" id="%s" value="1" %s /> %s%s</label>',
-					implode( ' ', $args['label_class'] ),
-					implode( ' ', $custom_attributes ),
-					esc_attr( $args['type'] ),
-					esc_attr( implode( ' ', $args['input_class'] ) ),
-					self::$fields,
-					esc_attr( $key ),
-					esc_attr( $args['id'] ),
-					checked( $value, 1, false ),
-					$args['label'],
-					$required
-				);
-
-				break;
-			case 'text':
-			case 'password':
-			case 'datetime':
-			case 'datetime-local':
-			case 'date':
-			case 'month':
-			case 'time':
-			case 'week':
-			case 'number':
-			case 'email':
-			case 'url':
-			case 'tel':
-				$field .= sprintf(
-					'<input type="%s" class="input-text %s" name="%s_%s" id="%s" placeholder="%s"  value="%s" %s />',
-					esc_attr( $args['type'] ),
-					esc_attr( implode( ' ', $args['input_class'] ) ),
-					self::$fields,
-					esc_attr( $key ), esc_attr( $args['id'] ),
-					esc_attr( $args['placeholder'] ),
-					esc_attr( $value ),
-					implode( ' ', $custom_attributes )
-				);
-
-				break;
-			case 'hidden':
-				$field .= sprintf(
-					'<input type="%s" class="input-hidden %s" name="%s_%s" id="%s" value="%s" %s />',
-					esc_attr( $args['type'] ),
-					esc_attr( implode( ' ', $args['input_class'] ) ),
-					self::$fields,
-					esc_attr( $key ),
-					esc_attr( $args['id'] ),
-					esc_attr( $value ),
-					implode( ' ', $custom_attributes )
-				);
-
-				break;
-			case 'select':
-				$field   = '';
-				$options = '';
-
-				if ( ! empty( $args['options'] ) ) {
-					foreach ( $args['options'] as $option_key => $option_text ) {
-						if ( '' === $option_key ) {
-							if ( empty( $args['placeholder'] ) ) {
-								$args['placeholder'] = $option_text ? : __( 'Choose an option', AINSYS_CONNECTOR_CONTENT_TEXTDOMAIN );
-							}
-							$custom_attributes[] = 'data-allow_clear="true"';
-						}
-
-						$options .= sprintf(
-							'<option value="%s" %s>%s</option>',
-							esc_attr( $option_key ),
-							selected( $value, $option_key, false ),
-							esc_html( $option_text )
-						);
-					}
-
-					$field .= sprintf(
-						'<select name="%s_%s" id="%s" class="select %s" %s data-placeholder="%s">%s</select>',
-						self::$fields,
-						esc_attr( $key ),
-						esc_attr( $args['id'] ),
-						esc_attr( implode( ' ', $args['input_class'] ) ),
-						implode( ' ', $custom_attributes ),
-						esc_attr( $args['placeholder'] ),
-						$options
-					);
-				}
-
-				break;
-			case 'radio':
-				$label_id .= sprintf( '_%s', current( array_keys( $args['options'] ) ) );
-
-				if ( ! empty( $args['options'] ) ) {
-					foreach ( $args['options'] as $option_key => $option_text ) {
-						$field .= sprintf(
-							'<input type="radio" class="input-radio %s" value="%s" name="%s_%s" %s id="%s_%s"%s />',
-							esc_attr( implode( ' ', $args['input_class'] ) ),
-							esc_attr( $option_key ),
-							self::$fields,
-							esc_attr( $key ),
-							implode( ' ', $custom_attributes ),
-							esc_attr( $args['id'] ),
-							esc_attr( $option_key ),
-							checked( $value, $option_key, false )
-						);
-						$field .= sprintf(
-							'<label for="%s_%s" class="radio %s">%s</label>',
-							esc_attr( $args['id'] ),
-							esc_attr( $option_key ),
-							implode( ' ', $args['label_class'] ),
-							esc_html( $option_text )
-						);
-					}
-				}
-
-				break;
-		}
-
-		if ( ! empty( $field ) ) {
-			$field_html = '';
-
-			if ( $args['label'] && 'checkbox' !== $args['type'] ) {
-				$field_html .= sprintf(
-					'<label for="%s" class="%s">%s%s</label>',
-					esc_attr( $label_id ),
-					esc_attr( implode( ' ', $args['label_class'] ) ),
-					wp_kses_post( $args['label'] ),
-					$required
-				);
-			}
-
-			$field_html .= '<span class="ainsys-input-wrapper">' . $field;
-
-			if ( $args['description'] ) {
-				$field_html .= sprintf(
-					'<span class="description" id="%s-description" aria-hidden="true">%s</span>',
-					esc_attr( $args['id'] ),
-					wp_kses_post( $args['description'] )
-				);
-			}
-
-			$field_html .= '</span>';
-
-			$container_class = esc_attr( implode( ' ', $args['class'] ) );
-			$container_id    = esc_attr( $args['id'] ) . '_field';
-			$field           = sprintf( $field_container, $container_class, $container_id, $field_html );
-		}
-
-		$field = apply_filters( 'ainsys_form_field_' . $args['type'], $field, $key, $args, $value );
-
-		$field = apply_filters( 'ainsys_form_field', $field, $key, $args, $value );
-
-		if ( $args['return'] ) {
-			return $field;
-		}
-
-		echo $field;
-	}
-
-
-	/**
-	 *
-	 * @param  /WP_Post $post
-	 */
-	public function render_meta_box_content( $post ): void {
-
-		wp_nonce_field( 'ainsys_template_inner', 'ainsys_template_inner_nonce' );
-
-		$post_id = (int) $post->ID;
-		$fields  = $this->get_fields( $post_id );
-
-		foreach ( $fields as $key => $field ) {
-			$this->metabox_field( $key, $field, $field['value'] );
-		}
+		add_action( 'init', [ $this, 'setup_content_filter' ], 9 );
 
 	}
 
 
 	public function init_frontend_hooks(): void {
 
-		if ( is_admin() || is_singular( self::SLUG ) ) {
+		if ( is_admin() || is_singular( self::$slug ) ) {
 			return;
 		}
 
 		$args = [
-			'post_type'              => self::SLUG,
+			'post_type'              => self::$slug,
 			'no_found_rows'          => true,
 			'update_post_term_cache' => false,
 			'post_status'            => 'publish',
@@ -433,89 +56,86 @@ class Controller {
 
 		$posts = get_posts( $args );
 
-
 		foreach ( $posts as $post ) {
 			$meta = $this->get_post_meta_array( $post );
 
-			
-	//		if ( apply_filters( 'ae_element_display', $this->check_element_conditionals( $post, $meta ), $post, $meta ) ) {
-				if ( ('custom' !== $meta['hook'] && ! empty( $meta['hook'] ) && strpos( $meta['hook'], 'fixed' ) !== 0)
-				     && 'replace_header' !== $meta['hook']
-				     && 'replace_404' !== $meta['hook']
-				     && 'replace_footer' !== $meta['hook']
-				     && 'kadence_before_wrapper' !== $meta['hook']
-				     && 'replace_login_modal' !== $meta['hook']
-				     && 'woocommerce_before_single_product_image' !== $meta['hook']
-				     && 'woocommerce_after_single_product_image' !== $meta['hook']
-				     && 'kadence_inside_the_content_before_h1' !== $meta['hook']
-				     && 'kadence_inside_the_content_after_h1' !== $meta['hook']
-				     && 'kadence_inside_the_content_after_p1' !== $meta['hook']
-				     && 'kadence_inside_the_content_after_p2' !== $meta['hook']
-				     && 'kadence_inside_the_content_after_p3' !== $meta['hook']
-				     && 'kadence_inside_the_content_after_p4' !== $meta['hook']
-				     && 'kadence_replace_sidebar' !== $meta['hook']
-				) {
-					add_action(
-						esc_attr( $meta['hook'] ),
-						function () use ( $post, $meta ) {
+			//		if ( apply_filters( 'ae_element_display', $this->check_element_conditionals( $post, $meta ), $post, $meta ) ) {
+			if ( ( 'custom' !== $meta['hook'] && ! empty( $meta['hook'] ) && strpos( $meta['hook'], 'fixed' ) !== 0 )
+			     && 'replace_header' !== $meta['hook']
+			     && 'replace_404' !== $meta['hook']
+			     && 'replace_footer' !== $meta['hook']
+			     && 'kadence_before_wrapper' !== $meta['hook']
+			     && 'replace_login_modal' !== $meta['hook']
+			     && 'woocommerce_before_single_product_image' !== $meta['hook']
+			     && 'woocommerce_after_single_product_image' !== $meta['hook']
+			     && 'kadence_inside_the_content_before_h1' !== $meta['hook']
+			     && 'kadence_inside_the_content_after_h1' !== $meta['hook']
+			     && 'kadence_inside_the_content_after_p1' !== $meta['hook']
+			     && 'kadence_inside_the_content_after_p2' !== $meta['hook']
+			     && 'kadence_inside_the_content_after_p3' !== $meta['hook']
+			     && 'kadence_inside_the_content_after_p4' !== $meta['hook']
+			     && 'kadence_replace_sidebar' !== $meta['hook']
+			) {
+				add_action(
+					esc_attr( $meta['hook'] ),
+					function () use ( $post, $meta ) {
 
-							$this->output_element( $post, $meta );
-						},
-						absint( $meta['priority'] )
-					);
-					$this->enqueue_element_styles( $post, $meta );
-				} elseif ( isset( $meta['hook'], $meta['custom'] ) && 'custom' === $meta['hook'] && ! empty( $meta['custom'] ) ) {
-					do_action( 'qm/info',$meta);
-					add_action(
-						esc_attr( $meta['custom'] ),
-						function () use ( $post, $meta ) {
+						$this->output_element( $post, $meta );
+					},
+					absint( $meta['priority'] )
+				);
+				$this->enqueue_element_styles( $post, $meta );
+			} elseif ( isset( $meta['hook'], $meta['custom'] ) && 'custom' === $meta['hook'] && ! empty( $meta['custom'] ) ) {
+				do_action( 'qm/info', $meta );
+				add_action(
+					esc_attr( $meta['custom'] ),
+					function () use ( $post, $meta ) {
 
-							$this->output_element( $post, $meta );
-						},
-						absint( $meta['priority'] )
-					);
-					$this->enqueue_element_styles( $post, $meta );
-				} elseif ( isset( $meta['hook'] ) && 'woocommerce_before_single_product_image' === $meta['hook'] ) {
-					add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_before_wrap' ], 11 );
-					add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_after_wrap' ], 80 );
-					add_action(
-						'woocommerce_before_single_product_summary',
-						function () use ( $post, $meta ) {
+						$this->output_element( $post, $meta );
+					},
+					absint( $meta['priority'] )
+				);
+				$this->enqueue_element_styles( $post, $meta );
+			} elseif ( isset( $meta['hook'] ) && 'woocommerce_before_single_product_image' === $meta['hook'] ) {
+				add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_before_wrap' ], 11 );
+				add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_after_wrap' ], 80 );
+				add_action(
+					'woocommerce_before_single_product_summary',
+					function () use ( $post, $meta ) {
 
-							echo '<!-- [special-element-' . esc_attr( $post->ID ) . '] -->';
-							echo '<div class="product-before-images-element">';
-							$this->output_element( $post, $meta );
-							echo '</div>';
-							echo '<!-- [/special-element-' . esc_attr( $post->ID ) . '] -->';
-						},
-						12
-					);
-				} elseif ( isset( $meta['hook'] ) && 'woocommerce_after_single_product_image' === $meta['hook'] ) {
-					add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_before_wrap' ], 11 );
-					add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_after_wrap' ], 80 );
-					add_action(
-						'woocommerce_before_single_product_summary',
-						function () use ( $post, $meta ) {
+						echo '<!-- [special-element-' . esc_attr( $post->ID ) . '] -->';
+						echo '<div class="product-before-images-element">';
+						$this->output_element( $post, $meta );
+						echo '</div>';
+						echo '<!-- [/special-element-' . esc_attr( $post->ID ) . '] -->';
+					},
+					12
+				);
+			} elseif ( isset( $meta['hook'] ) && 'woocommerce_after_single_product_image' === $meta['hook'] ) {
+				add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_before_wrap' ], 11 );
+				add_action( 'woocommerce_before_single_product_summary', [ $this, 'product_image_after_wrap' ], 80 );
+				add_action(
+					'woocommerce_before_single_product_summary',
+					function () use ( $post, $meta ) {
 
-							echo '<!-- [special-element-' . esc_attr( $post->ID ) . '] -->';
-							echo '<div class="product-after-images-element">';
-							$this->output_element( $post, $meta );
-							echo '</div>';
-							echo '<!-- [/special-element-' . esc_attr( $post->ID ) . '] -->';
-						},
-						50
-					);
-				}
+						echo '<!-- [special-element-' . esc_attr( $post->ID ) . '] -->';
+						echo '<div class="product-after-images-element">';
+						$this->output_element( $post, $meta );
+						echo '</div>';
+						echo '<!-- [/special-element-' . esc_attr( $post->ID ) . '] -->';
+					},
+					50
+				);
 			}
-	//	}
+		}
+		//	}
 	}
 
 
 	public function check_element_conditionals( $post, $meta ): bool {
 
-		$current_condition    = self::get_current_page_conditions();
-		do_action( 'qm/info',$current_condition);
-		
+		$current_condition = self::get_current_page_conditions();
+
 		$rules_with_sub_rules = [ 'singular', 'tax_archive' ];
 		$show                 = false;
 		$all_must_be_true     = ( isset( $meta, $meta['all_show'] ) ? $meta['all_show'] : false );
@@ -792,21 +412,20 @@ class Controller {
 			$meta['type'] = get_post_meta( $post->ID, '_ae_element_type', true );
 		}
 
-
-		if ( get_post_meta( $post->ID, self::$fields . '_hook_custom', true ) ) {
-			$meta['hook'] = get_post_meta( $post->ID, self::$fields . '_hook_custom', true );
-			if ( ( 'custom' === $meta['hook'] ) && get_post_meta( $post->ID, self::$fields . '_hook_custom', true ) ) {
-				$meta['custom'] = get_post_meta( $post->ID, self::$fields . '_hook_custom', true );
+		if ( get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_custom', true ) ) {
+			$meta['hook'] = get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_custom', true );
+			if ( ( 'custom' === $meta['hook'] ) && get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_custom', true ) ) {
+				$meta['custom'] = get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_custom', true );
 			}
 		}
 
-		if ( get_post_meta( $post->ID, '_ae_element_hook_priority', true ) ) {
-			$meta['priority'] = get_post_meta( $post->ID, '_ae_element_hook_priority', true );
+		if ( get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_priority', true ) ) {
+			$meta['priority'] = get_post_meta( $post->ID, $this->main->get_field_slug() . '_hook_priority', true );
 		}
 
-		if ( '' !== get_post_meta( $post->ID, '_ae_element_hook_scroll', true ) ) {
+		/*if ( '' !== get_post_meta( $post->ID, '_ae_element_hook_scroll', true ) ) {
 			$meta['scroll'] = get_post_meta( $post->ID, '_ae_element_hook_scroll', true );
-		}
+		}*/
 
 		if ( get_post_meta( $post->ID, '_ae_element_show_conditionals', true ) ) {
 			$meta['show'] = json_decode( get_post_meta( $post->ID, '_ae_element_show_conditionals', true ), true );
@@ -855,7 +474,6 @@ class Controller {
 			}
 		}
 
-
 		return $meta;
 	}
 
@@ -881,6 +499,7 @@ class Controller {
 					}
 				}
 			}
+
 			return;
 		}
 
@@ -930,10 +549,12 @@ class Controller {
 		}*/
 	}
 
-	public function setup_content_filter() {
+
+	public function setup_content_filter(): void {
+
 		global $wp_embed;
-		add_filter( 'ae_the_content', array( $wp_embed, 'run_shortcode' ), 8 );
-		add_filter( 'ae_the_content', array( $wp_embed, 'autoembed'     ), 8 );
+		add_filter( 'ae_the_content', [ $wp_embed, 'run_shortcode' ], 8 );
+		add_filter( 'ae_the_content', [ $wp_embed, 'autoembed' ], 8 );
 		add_filter( 'ae_the_content', 'do_blocks' );
 		add_filter( 'ae_the_content', 'wptexturize' );
 		add_filter( 'ae_the_content', 'convert_chars' );
@@ -942,8 +563,8 @@ class Controller {
 		add_filter( 'ae_the_content', 'do_shortcode', 11 );
 		add_filter( 'ae_the_content', 'convert_smilies', 20 );
 
-		add_filter( 'ae_code_the_content', array( $wp_embed, 'run_shortcode' ), 8 );
-		add_filter( 'ae_code_the_content', array( $wp_embed, 'autoembed'     ), 8 );
+		add_filter( 'ae_code_the_content', [ $wp_embed, 'run_shortcode' ], 8 );
+		add_filter( 'ae_code_the_content', [ $wp_embed, 'autoembed' ], 8 );
 		add_filter( 'ae_code_the_content', 'do_blocks' );
 		//add_filter( 'ktp_code_the_content', 'wptexturize' );
 		//add_filter( 'ktp_code_the_content', 'convert_chars' );
@@ -952,6 +573,8 @@ class Controller {
 		add_filter( 'ae_code_the_content', 'do_shortcode', 11 );
 		add_filter( 'ae_code_the_content', 'convert_smilies', 20 );
 	}
+
+
 	public function output_element( $post, $meta, $shortcode = false ) {
 
 		$content = $post->post_content;
@@ -1006,7 +629,7 @@ class Controller {
 				ob_start();
 				FLBuilder::render_query(
 					[
-						'post_type' => self::SLUG,
+						'post_type' => self::$slug,
 						'p'         => $post->ID,
 					]
 				);
@@ -1060,7 +683,7 @@ class Controller {
 			$builder = 'elementor';
 		} elseif ( class_exists( 'Brizy_Editor_Post' ) && class_exists( 'Brizy_Editor' ) ) {
 			$supported_post_types = Brizy_Editor::get()->supported_post_types();
-			if ( in_array( self::SLUG, $supported_post_types, true ) ) {
+			if ( in_array( self::$slug, $supported_post_types, true ) ) {
 				if ( Brizy_Editor_Post::get( $post->ID )->uses_editor() ) {
 					// Element is built with brizy.
 					$builder = 'brizy';
@@ -1075,91 +698,6 @@ class Controller {
 		}
 
 		return $builder;
-	}
-
-
-	/**
-	 * Register Post Meta options
-	 */
-	public function register_meta(): void {
-
-		register_post_meta(
-			self::SLUG,
-			'_ae_element_hook_custom',
-			[
-				'show_in_rest'  => true,
-				'single'        => true,
-				'type'          => 'string',
-				'auth_callback' => '__return_true',
-			]
-		);
-		register_post_meta(
-			self::SLUG,
-			'_ae_element_hook_priority',
-			[
-				'show_in_rest'  => true,
-				'single'        => true,
-				'type'          => 'number',
-				'default'       => 10,
-				'auth_callback' => '__return_true',
-			]
-		);
-
-	}
-
-
-	public function register_post_type(): void {
-
-		$labels = [
-			'name'                  => __( 'Elements', 'kadence_pro' ),
-			'singular_name'         => __( 'Element', 'kadence_pro' ),
-			'menu_name'             => _x( 'Elements', 'Admin Menu text', 'kadence_pro' ),
-			'add_new'               => _x( 'Add New', 'Element', 'kadence_pro' ),
-			'add_new_item'          => __( 'Add New Element', 'kadence_pro' ),
-			'new_item'              => __( 'New Element', 'kadence_pro' ),
-			'edit_item'             => __( 'Edit Element', 'kadence_pro' ),
-			'view_item'             => __( 'View Element', 'kadence_pro' ),
-			'all_items'             => __( 'All Elements', 'kadence_pro' ),
-			'search_items'          => __( 'Search Elements', 'kadence_pro' ),
-			'parent_item_colon'     => __( 'Parent Element:', 'kadence_pro' ),
-			'not_found'             => __( 'No Elements found.', 'kadence_pro' ),
-			'not_found_in_trash'    => __( 'No Elements found in Trash.', 'kadence_pro' ),
-			'archives'              => __( 'Element archives', 'kadence_pro' ),
-			'insert_into_item'      => __( 'Insert into Element', 'kadence_pro' ),
-			'uploaded_to_this_item' => __( 'Uploaded to this Element', 'kadence_pro' ),
-			'filter_items_list'     => __( 'Filter Elements list', 'kadence_pro' ),
-			'items_list_navigation' => __( 'Elements list navigation', 'kadence_pro' ),
-			'items_list'            => __( 'Elements list', 'kadence_pro' ),
-		];
-
-		$args = [
-			'labels'              => $labels,
-			'description'         => __( 'Element areas to include in your site.', 'kadence_pro' ),
-			'public'              => false,
-			'publicly_queryable'  => false,
-			'has_archive'         => false,
-			'exclude_from_search' => true,
-			'show_ui'             => true,
-			'show_in_menu'        => true,
-			'show_in_nav_menus'   => false,
-			'show_in_admin_bar'   => false,
-			'can_export'          => true,
-			'show_in_rest'        => true,
-			'rewrite'             => false,
-			'rest_base'           => 'ae_element',
-			'menu_position'       => 64,
-			'menu_icon'           => 'dashicons-layout',
-			//'capability_type'     => [ 'kadence_element', 'kadence_elements' ],
-			'map_meta_cap'        => true,
-			'supports'            => [
-				'title',
-				'editor',
-				'custom-fields',
-				'revisions',
-			],
-		];
-
-		register_post_type( self::SLUG, $args );
 	}
 
 }

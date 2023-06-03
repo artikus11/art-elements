@@ -4,6 +4,9 @@ namespace Art\Elements;
 
 class Main {
 
+	protected const SLUG = 'ae_element';
+
+
 	/**
 	 * Instance.
 	 *
@@ -12,10 +15,45 @@ class Main {
 	 */
 	private static ?object $instance = null;
 
+	/**
+	 * @var void
+	 */
+	protected $controller;
+
+
+	/**
+	 * Throw error on object clone.
+	 *
+	 * The whole idea of the singleton design pattern is that there is a single
+	 * object therefore, we don't want the object to be cloned.
+	 *
+	 * @return void
+	 */
+	public function __clone() {
+
+		// Cloning instances of the class is forbidden.
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Cloning instances of the class is Forbidden', AE_PLUGIN_SLUG ), '1.0' );
+	}
+
+
+	/**
+	 * Disable un-serializing of the class.
+	 *
+	 * @return void
+	 */
+	public function __wakeup() {
+
+		// Unserializing instances of the class is forbidden.
+		_doing_it_wrong( __FUNCTION__, esc_html__( 'Unserializing instances of the class is forbidden', AE_PLUGIN_SLUG ), '1.0' );
+	}
+
 
 	public function __construct() {
 
-		(new Controller())->setup_hook();
+		( new CPT( $this ) )->setup_hook();
+		( new Metabox( $this ) )->setup_hook();
+		$this->controller = new Controller( $this );
+		$this->controller->setup_hook();
 
 		$this->updater_init();
 	}
@@ -79,6 +117,31 @@ class Main {
 
 		return self::$instance;
 
+	}
+
+
+	/**
+	 * @return string
+	 */
+	public function get_slug(): string {
+
+		return self::SLUG;
+	}
+
+
+	/**
+	 * @return string
+	 */
+	public function get_field_slug(): string {
+
+		return sprintf( '_%s_fields', $this->get_slug() );
+	}
+
+
+
+	public function get_controller() {
+
+		return $this->controller;
 	}
 
 }
