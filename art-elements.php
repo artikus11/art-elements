@@ -4,7 +4,7 @@
  * Plugin URI: wpruse.ru
  * Text Domain: art-elements
  * Domain Path: /languages
- * Description: Добавление элемнтов на хуки
+ * Description: Добавление элементов на хуки
  * Version: 1.0.0
  * Author: Artem Abramovich
  * Author URI: https://wpruse.ru/
