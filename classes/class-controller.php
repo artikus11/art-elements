@@ -492,12 +492,12 @@ class Controller {
 				if ( method_exists( $kadence_blocks, 'frontend_build_css' ) ) {
 					$kadence_blocks->frontend_build_css( $post );
 				}
-				if ( class_exists( 'Kadence_Blocks_Pro_Frontend' ) ) {
-					$kadence_blocks_pro = Kadence_Blocks_Pro_Frontend::get_instance();
-					if ( method_exists( $kadence_blocks_pro, 'frontend_build_css' ) ) {
-						$kadence_blocks_pro->frontend_build_css( $post );
-					}
-				}
+//				if ( class_exists( 'Kadence_Blocks_Pro_Frontend' ) ) {
+//					$kadence_blocks_pro = Kadence_Blocks_Pro_Frontend::get_instance();
+//					if ( method_exists( $kadence_blocks_pro, 'frontend_build_css' ) ) {
+//						$kadence_blocks_pro->frontend_build_css( $post );
+//					}
+//				}
 			}
 
 			return;
@@ -619,11 +619,7 @@ class Controller {
 			return;
 		}
 
-		if ( isset( $scripts ) && ! empty( $scripts ) ) {
-			echo '<!-- [element-script-' . esc_attr( $post->ID ) . '] -->';
-			echo $scripts;
-			echo '<!-- [/element-script-' . esc_attr( $post->ID ) . '] -->';
-		}
+		$content = apply_filters( 'ae_the_content', $content );
 
 		if ( $content ) {
 			echo '<!-- [element-' . esc_attr( $post->ID ) . '] -->';
@@ -631,7 +627,7 @@ class Controller {
 			echo '<!-- [/element-' . esc_attr( $post->ID ) . '] -->';
 		}
 
-		if ( isset( $meta['device'] ) && ! empty( $meta['device'] ) && is_array( $meta['device'] ) ) {
+		if ( ! empty( $meta['device'] ) && is_array( $meta['device'] ) ) {
 			echo '</div>';
 		}
 	}

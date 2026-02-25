@@ -5,7 +5,7 @@
  * Text Domain: art-elements
  * Domain Path: /languages
  * Description: Добавление элементов на хуки
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Artem Abramovich
  * Author URI: https://wpruse.ru/
  * License: GPL-2.0+
@@ -17,7 +17,7 @@
 
 const AE_PLUGIN_DIR       = __DIR__;
 const AE_PLUGIN_AFILE        = __FILE__;
-const AE_PLUGIN_VER       = '1.0.1';
+const AE_PLUGIN_VER       = '1.0.2';
 const AE_PLUGIN_SLUG      = 'art-elements';
 const AE_PLUGIN_TEPMLATES = 'templates';
 
