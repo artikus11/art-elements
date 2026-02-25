@@ -52,6 +52,8 @@ class Main {
 
 		( new CPT( $this ) )->setup_hook();
 		( new Metabox( $this ) )->setup_hook();
+		( new Shortcodes( $this ) )->setup_hook();
+
 		$this->controller = new Controller( $this );
 		$this->controller->setup_hook();
 
@@ -136,7 +138,6 @@ class Main {
 
 		return sprintf( '_%s_fields', $this->get_slug() );
 	}
-
 
 
 	public function get_controller() {

@@ -130,7 +130,7 @@ class Updater {
 				}
 			}
 
-			if ( is_array( $response ) ) {
+			if ( is_array( $response ) && ! empty( $response['assets'] ) ) {
 				$assets = current( $response['assets'] );
 
 				$this->github_response = [

@@ -619,39 +619,6 @@ class Controller {
 			return;
 		}
 
-		$builder_info = $this->check_for_pagebuilder( $post );
-
-		switch ( $builder_info ) {
-			case 'elementor':
-				$content = \Elementor\Plugin::instance()->frontend->get_builder_content_for_display( $post->ID );
-				break;
-			case 'beaver':
-				ob_start();
-				FLBuilder::render_query(
-					[
-						'post_type' => self::$slug,
-						'p'         => $post->ID,
-					]
-				);
-				$content = ob_get_clean();
-				break;
-			case 'brizy':
-				$brizy = Brizy_Editor_Post::get( $post->ID );
-				$html  = new Brizy_Editor_CompiledHtml( $brizy->get_compiled_html() );
-				// the <head> content
-				// the $headHtml contains all the assets the page needs
-				$scripts = apply_filters( 'brizy_content', $html->get_head(), Brizy_Editor_Project::get(), $brizy->getWpPost() );
-				// the <body> content
-				$content = apply_filters( 'brizy_content', $html->get_body(), Brizy_Editor_Project::get(), $brizy->getWpPost() );
-				break;
-			case 'panels':
-				$content = siteorigin_panels_render( $post->ID );
-				break;
-			default:
-				$content = apply_filters( 'ae_the_content', $content );
-				break;
-		}
-
 		if ( isset( $scripts ) && ! empty( $scripts ) ) {
 			echo '<!-- [element-script-' . esc_attr( $post->ID ) . '] -->';
 			echo $scripts;
