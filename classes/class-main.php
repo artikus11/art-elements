@@ -56,8 +56,6 @@ class Main {
 
 		$this->controller = new Controller( $this );
 		$this->controller->setup_hook();
-
-		$this->updater_init();
 	}
 
 
@@ -93,16 +91,6 @@ class Main {
 		}
 
 		return apply_filters( 'ae_locate_template', $template_path );
-	}
-
-
-	protected function updater_init(): void {
-
-		$updater = new Updater( AE_PLUGIN_AFILE );
-		$updater->set_repository( 'art-elements' );
-		$updater->set_username( 'artikus11' );
-		$updater->set_authorize( 'Z2hwX3FmOHVsOXJVV2pSaVFUVjd3MXVybkpVbWNVT3VCbzBNV0ZCWA==' );
-		$updater->init();
 	}
 
 
